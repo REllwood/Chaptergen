@@ -1,0 +1,7 @@
+Welcome everyone to today's video about building CLI tools.
+In this video we'll be covering Python and Click.
+First let's set up our environment with a virtual env.
+Now we write our first command line function.
+Let's test it and see what happens.
+Great, now let's deploy this to PyPI.
+That wraps up today's video, thanks for watching.

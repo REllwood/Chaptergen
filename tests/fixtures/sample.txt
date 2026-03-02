@@ -1,0 +1,7 @@
+0:00 Welcome to the video
+0:45 What we'll cover today
+2:15 Setting up the environment
+5:30 Writing the first function
+8:00 Testing and debugging
+11:45 Deploying to production
+14:20 Wrap up and next steps

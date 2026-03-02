@@ -1,0 +1,19 @@
+WEBVTT
+
+00:00.000 --> 00:05.000
+Welcome to this tutorial on Python.
+
+00:05.500 --> 00:12.000
+Today we'll build a command-line tool.
+
+00:45.000 --> 01:10.000
+Let's start by setting up our project structure.
+
+02:15.000 --> 03:00.000
+Now let's write the core logic for our application.
+
+05:30.000 --> 06:00.000
+Time to add some tests.
+
+08:00.000 --> 08:30.000
+That's all for today!
