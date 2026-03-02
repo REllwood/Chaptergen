@@ -138,8 +138,8 @@ Chapters:
 
 ### OpenAI
 
-- **gpt-4o-mini** — Cost-effective, good quality
-- **gpt-4o** — Best quality
+- **gpt-5-mini** — Cost-effective, good quality
+- **gpt-5.3** — Best quality
 
 ## Development
 
