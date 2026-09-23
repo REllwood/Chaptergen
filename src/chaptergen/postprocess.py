@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 
 from chaptergen.models import Chapter
+from chaptergen.timestamps import parse_timestamp
+
+# Models sometimes rename the start-time key; accept the common variants
+_START_KEYS = ("start_seconds", "start", "timestamp", "time")
 
 
 def parse_chapters_json(raw: str) -> list[Chapter]:
     """Extract and parse a JSON array of chapters from raw model output.
 
-    Tolerates markdown code fences and leading/trailing junk.
+    Tolerates markdown code fences and leading/trailing junk. Entries without
+    a usable start time or title are skipped rather than failing the whole list.
     """
     cleaned = _extract_json_array(raw)
 
@@ -27,16 +33,34 @@ def parse_chapters_json(raw: str) -> list[Chapter]:
     for item in data:
         if not isinstance(item, dict):
             continue
-        start = item.get("start_seconds")
+        start = _to_seconds(next((item[k] for k in _START_KEYS if k in item), None))
         title = item.get("title")
-        if start is None or title is None:
+        if start is None or title is None or not str(title).strip():
             continue
-        chapters.append(Chapter(start_seconds=float(start), title=str(title).strip()))
+        chapters.append(Chapter(start_seconds=start, title=str(title).strip()))
 
     if not chapters:
         raise ValueError("No valid chapters found in model response.")
 
     return chapters
+
+
+def _to_seconds(value: object) -> float | None:
+    """Coerce a model-supplied start time to seconds, or ``None`` if it's unusable."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        seconds = float(value)
+    elif isinstance(value, str):
+        try:
+            seconds = parse_timestamp(value)
+        except ValueError:
+            return None
+    else:
+        return None
+    if not math.isfinite(seconds) or seconds < 0:
+        return None
+    return seconds
 
 
 def enforce_rules(
