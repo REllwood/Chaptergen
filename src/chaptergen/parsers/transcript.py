@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from chaptergen.models import Segment
+from chaptergen.parsers.textfile import read_text
 
 _TS_PATTERN = re.compile(
     r"^[\[\(]?"
@@ -29,7 +30,7 @@ def _ts_to_seconds(h: str | None, m: str, s: str) -> float:
 
 def parse_transcript(path: Path) -> list[Segment]:
     """Return a list of :class:`Segment` from a ``.txt`` or ``.md`` file."""
-    text = path.read_text(encoding="utf-8")
+    text = read_text(path)
     segments: list[Segment] = []
     current_start = 0.0
 

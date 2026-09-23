@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from chaptergen.models import Segment
+from chaptergen.parsers.textfile import read_text
 
 _SRT_TS = re.compile(
     r"(?P<h>\d{2}):(?P<m>\d{2}):(?P<s>\d{2})[,.](?P<ms>\d{3})"
@@ -38,7 +39,7 @@ def parse_vtt(path: Path) -> list[Segment]:
 
 
 def _parse_subtitle_file(path: Path, ts_pattern: re.Pattern[str]) -> list[Segment]:
-    raw = path.read_text(encoding="utf-8")
+    raw = read_text(path)
     blocks = re.split(r"\n\s*\n", raw)
     segments: list[Segment] = []
 

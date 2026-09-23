@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from chaptergen.parsers import load_segments
 from chaptergen.parsers.subtitles import parse_srt, parse_vtt
 from chaptergen.parsers.transcript import parse_transcript
@@ -131,3 +133,48 @@ class TestLoadSegments:
             assert False, "Should have raised"
         except ValueError:
             pass
+
+
+class TestFileEncodings:
+
+    def test_utf8_bom_srt(self, tmp_path):
+        f = tmp_path / "bom.srt"
+        f.write_bytes("\ufeff1\n00:00:00,000 --> 00:00:05,000\nHello there\n".encode())
+        segs = parse_srt(f)
+        assert segs[0].text == "Hello there"
+
+    def test_utf8_bom_vtt(self, tmp_path):
+        f = tmp_path / "bom.vtt"
+        f.write_bytes("\ufeffWEBVTT\n\n00:00.000 --> 00:05.000\nHello there\n".encode())
+        segs = parse_vtt(f)
+        assert [s.text for s in segs] == ["Hello there"]
+
+    def test_utf8_bom_txt(self, tmp_path):
+        f = tmp_path / "bom.txt"
+        f.write_bytes("\ufeff0:30 Hello there\n".encode())
+        segs = parse_transcript(f)
+        assert (segs[0].start_seconds, segs[0].text) == (30, "Hello there")
+
+    def test_windows_1252_srt(self, tmp_path):
+        f = tmp_path / "latin.srt"
+        f.write_bytes("1\r\n00:00:00,000 --> 00:00:05,000\r\nCafé time\r\n".encode("cp1252"))
+        segs = parse_srt(f)
+        assert segs[0].text == "Café time"
+
+    def test_utf16_txt(self, tmp_path):
+        f = tmp_path / "notepad.txt"
+        f.write_bytes("0:00 Intro\r\n1:00 Café chat\r\n".encode("utf-16"))
+        segs = parse_transcript(f)
+        assert [s.text for s in segs] == ["Intro", "Café chat"]
+
+    def test_crlf_srt(self, tmp_path):
+        f = tmp_path / "crlf.srt"
+        f.write_bytes(b"1\r\n00:00:00,000 --> 00:00:05,000\r\nFirst\r\n\r\n2\r\n00:00:06,000 --> 00:00:09,000\r\nSecond\r\n")
+        segs = parse_srt(f)
+        assert [(s.start_seconds, s.text) for s in segs] == [(0, "First"), (6, "Second")]
+
+    def test_undecodable_file_raises_value_error(self, tmp_path):
+        f = tmp_path / "binary.txt"
+        f.write_bytes(b"\x81\x8d\x8f\x90\x9d\xff")
+        with pytest.raises(ValueError, match="Re-save it as UTF-8"):
+            load_segments(f)
