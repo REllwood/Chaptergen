@@ -177,6 +177,20 @@ class TestEnforceRules:
         assert result[0].start_seconds == 0
         assert result[1].start_seconds == 60
 
+    def test_max_chapters_drops_shortest_first(self):
+        chapters = [Chapter(start_seconds=t, title=str(t)) for t in [0, 60, 90, 300, 320, 600]]
+        result = enforce_rules(chapters, min_gap_seconds=0, max_chapters=4)
+        assert [c.start_seconds for c in result] == [0, 60, 300, 600]
+
+    def test_max_chapters_keeps_zero(self):
+        chapters = [Chapter(start_seconds=t, title=str(t)) for t in [0, 5, 400]]
+        result = enforce_rules(chapters, min_gap_seconds=0, max_chapters=1)
+        assert [c.start_seconds for c in result] == [0]
+
+    def test_under_max_chapters_unchanged(self):
+        chapters = [Chapter(start_seconds=t, title=str(t)) for t in [0, 60, 120]]
+        assert len(enforce_rules(chapters, max_chapters=10)) == 3
+
     def test_empty_input(self):
         result = enforce_rules([])
         assert len(result) == 1

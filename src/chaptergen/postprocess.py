@@ -68,6 +68,7 @@ def enforce_rules(
     chapters: list[Chapter],
     *,
     min_gap_seconds: int = 30,
+    max_chapters: int | None = None,
 ) -> list[Chapter]:
     """Apply YouTube-friendly business rules to chapter list."""
     chapters = sorted(chapters, key=lambda c: c.start_seconds)
@@ -99,6 +100,16 @@ def enforce_rules(
             if ch.start_seconds - filtered[-1].start_seconds >= min_gap_seconds:
                 filtered.append(ch)
         chapters = filtered
+
+    # Enforce the chapter limit by repeatedly dropping the boundary that makes
+    # the shortest chapter, which keeps the remaining chapters evenly spread
+    if max_chapters is not None:
+        while len(chapters) > max(max_chapters, 1):
+            shortest = min(
+                range(1, len(chapters)),
+                key=lambda i: chapters[i].start_seconds - chapters[i - 1].start_seconds,
+            )
+            del chapters[shortest]
 
     # YouTube requires at least 3 chapters (including 0:00) for the feature to activate
     if len(chapters) < 3:

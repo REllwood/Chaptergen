@@ -62,7 +62,7 @@ def main() -> None:
 @click.option("--temperature", default=None, type=float, help="Sampling temperature [default: 0 for Ollama, the model's default for OpenAI]")
 @click.option("--format", "-f", "fmt", type=click.Choice(["chapters", "youtube", "json"], case_sensitive=False), default="chapters", show_default=True, help="Output format")
 @click.option("--output", "-o", "output_path", default=None, type=click.Path(path_type=Path), help="Write output to file instead of stdout")
-@click.option("--max-chapters", default=None, type=int, help="Suggest a maximum number of chapters to the LLM")
+@click.option("--max-chapters", default=None, type=int, help="Maximum number of chapters")
 @click.option("--min-gap", default=30, type=int, show_default=True, help="Minimum seconds between chapters")
 @click.option("--duration", default=None, type=_Duration(), help="Video length (e.g. 12:34); used to time transcripts without timestamps")
 def generate(
