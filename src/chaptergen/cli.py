@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 import click
 from rich.console import Console
@@ -19,6 +20,12 @@ from chaptergen.providers import get_provider
 console = Console(stderr=True)
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".srt", ".vtt"}
+
+
+def _fail(message: str) -> NoReturn:
+    """Print an error to stderr and exit with status 1."""
+    console.print(f"[red]{escape(message)}[/red]")
+    sys.exit(1)
 
 
 @click.group()
@@ -55,8 +62,7 @@ def generate(
     """Generate chapters from a transcript file."""
     ext = input_path.suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
-        console.print(f"[red]Unsupported file type '{escape(ext)}'. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}[/red]")
-        sys.exit(1)
+        _fail(f"Unsupported file type '{ext}'. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}")
 
     try:
         cfg = resolve_config(
@@ -68,19 +74,23 @@ def generate(
             temperature=temperature,
         )
     except ValueError as exc:
-        console.print(f"[red]Configuration error: {escape(str(exc))}[/red]")
-        sys.exit(1)
+        _fail(f"Configuration error: {exc}")
 
     console.print(f"[dim]Provider:[/dim] {escape(cfg.provider)}  [dim]Model:[/dim] {escape(cfg.model)}")
 
-    segments = load_segments(input_path)
+    try:
+        segments = load_segments(input_path)
+    except (OSError, ValueError) as exc:
+        _fail(f"Could not read {input_path.name}: {exc}")
     if not segments:
-        console.print("[red]No transcript segments found in input file.[/red]")
-        sys.exit(1)
+        _fail("No transcript segments found in input file.")
 
     console.print(f"[dim]Parsed {len(segments)} segments from {escape(input_path.name)}[/dim]")
 
-    llm = get_provider(cfg)
+    try:
+        llm = get_provider(cfg)
+    except (ImportError, ValueError) as exc:
+        _fail(str(exc))
 
     try:
         result = generate_chapters(
@@ -91,13 +101,15 @@ def generate(
             min_gap_seconds=min_gap,
         )
     except Exception as exc:
-        console.print(f"[red]Generation failed: {escape(str(exc))}[/red]")
-        sys.exit(1)
+        _fail(f"Generation failed: {exc}")
 
     output_text = render(result, fmt=fmt)
 
     if output_path:
-        output_path.write_text(output_text, encoding="utf-8")
+        try:
+            output_path.write_text(output_text, encoding="utf-8")
+        except OSError as exc:
+            _fail(f"Could not write {output_path}: {exc}")
         console.print(f"[green]Wrote {len(result.chapters)} chapters to {escape(str(output_path))}[/green]")
     else:
         # Plain echo: Rich would treat titles as markup, swap :emoji: codes and hard-wrap long lines
@@ -127,13 +139,14 @@ def check_provider(
             base_url=base_url,
         )
     except ValueError as exc:
-        console.print(f"[red]{escape(str(exc))}[/red]")
-        sys.exit(1)
+        _fail(str(exc))
 
-    llm = get_provider(cfg)
+    try:
+        llm = get_provider(cfg)
+    except (ImportError, ValueError) as exc:
+        _fail(str(exc))
+
     ok, msg = llm.health_check()
-    if ok:
-        console.print(f"[green]{escape(msg)}[/green]")
-    else:
-        console.print(f"[red]{escape(msg)}[/red]")
-        sys.exit(1)
+    if not ok:
+        _fail(msg)
+    console.print(f"[green]{escape(msg)}[/green]")

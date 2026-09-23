@@ -176,3 +176,42 @@ class TestCLI:
         result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt")])
         assert result.exit_code == 1
         assert "[/INST] unexpected" in result.stderr
+
+
+class TestCLIErrors:
+    """User mistakes should produce a one-line error, not a traceback."""
+
+    def test_openai_without_api_key(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.srt"), "--provider", "openai"])
+        assert result.exit_code == 1
+        assert "API key is required" in result.stderr
+        assert result.exception is None or isinstance(result.exception, SystemExit)
+
+    def test_check_openai_without_api_key(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        result = _runner().invoke(main, ["check", "--provider", "openai"])
+        assert result.exit_code == 1
+        assert "API key is required" in result.stderr
+
+    @patch("chaptergen.cli.get_provider", side_effect=ImportError("The 'openai' package is required"))
+    def test_missing_optional_package(self, _mock):
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt")])
+        assert result.exit_code == 1
+        assert "package is required" in result.stderr
+
+    @patch("chaptergen.cli.load_segments", side_effect=PermissionError("Permission denied"))
+    def test_unreadable_input(self, _mock):
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt")])
+        assert result.exit_code == 1
+        assert "Could not read sample.txt" in result.stderr
+
+    @patch("chaptergen.cli.get_provider")
+    @patch("chaptergen.cli.generate_chapters")
+    def test_output_directory_missing(self, mock_gen, mock_get_prov, tmp_path):
+        mock_gen.return_value = GenerationResult(chapters=[Chapter(start_seconds=0, title="Intro")])
+        mock_get_prov.return_value = MagicMock()
+        out_file = tmp_path / "no-such-dir" / "chapters.txt"
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt"), "--output", str(out_file)])
+        assert result.exit_code == 1
+        assert "Could not write" in result.stderr
