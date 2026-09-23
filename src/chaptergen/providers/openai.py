@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from rich.console import Console
 from rich.markup import escape
 
 from chaptergen.config import ProviderConfig
-from chaptergen.providers.base import LLMProvider
+from chaptergen.providers.base import LLMProvider, Message
 
 _console = Console(stderr=True)
 
@@ -37,11 +39,19 @@ class OpenAIProvider(LLMProvider):
         self._model = config.model
         self._temperature_supported = True
 
-    def complete(self, system_prompt: str, user_prompt: str, *, temperature: float | None = None) -> str:
+    def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        temperature: float | None = None,
+        history: Sequence[Message] = (),
+    ) -> str:
         request: dict = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
+                *history,
                 {"role": "user", "content": user_prompt},
             ],
         }

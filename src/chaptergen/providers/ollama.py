@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import httpx
 
 from chaptergen.config import ProviderConfig
-from chaptergen.providers.base import LLMProvider
+from chaptergen.providers.base import LLMProvider, Message
 
 # Long transcripts on CPU-only machines can take several minutes to process
 _READ_TIMEOUT_SECONDS = 600
@@ -46,9 +48,17 @@ class OllamaProvider(LLMProvider):
         self._model_limit: int | None = None
         self._model_limit_checked = False
 
-    def complete(self, system_prompt: str, user_prompt: str, *, temperature: float | None = None) -> str:
+    def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        temperature: float | None = None,
+        history: Sequence[Message] = (),
+    ) -> str:
         url = f"{self._base_url}/api/chat"
-        num_ctx = _context_size(len(system_prompt) + len(user_prompt), self._context_limit())
+        prompt_chars = len(system_prompt) + len(user_prompt) + sum(len(m["content"]) for m in history)
+        num_ctx = _context_size(prompt_chars, self._context_limit())
         payload = {
             "model": self._model,
             "stream": False,
@@ -56,6 +66,7 @@ class OllamaProvider(LLMProvider):
             "options": {"temperature": 0.0 if temperature is None else temperature, "num_ctx": num_ctx},
             "messages": [
                 {"role": "system", "content": system_prompt},
+                *history,
                 {"role": "user", "content": user_prompt},
             ],
         }

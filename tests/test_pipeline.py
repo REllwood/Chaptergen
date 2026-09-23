@@ -7,6 +7,7 @@ import pytest
 from chaptergen.config import ProviderConfig
 from chaptergen.models import Segment
 from chaptergen.pipeline import condense_segments, generate_chapters
+from chaptergen.prompts.chapters import SYSTEM_PROMPT
 from chaptergen.providers.base import LLMProvider
 
 CONFIG = ProviderConfig(provider="ollama", model="test-model")
@@ -30,9 +31,11 @@ class FakeProvider(LLMProvider):
     def __init__(self, *responses: str) -> None:
         self._responses = list(responses)
         self.calls: list[tuple[str, str]] = []
+        self.histories: list[list[dict]] = []
 
-    def complete(self, system_prompt: str, user_prompt: str, *, temperature: float = 0.0) -> str:
+    def complete(self, system_prompt, user_prompt, *, temperature=None, history=()):
         self.calls.append((system_prompt, user_prompt))
+        self.histories.append(list(history))
         return self._responses.pop(0)
 
     def health_check(self) -> tuple[bool, str]:
@@ -54,7 +57,14 @@ class TestGenerateChapters:
         result = generate_chapters(segments=SEGMENTS, provider=provider, config=CONFIG)
         assert len(result.chapters) == 3
         assert len(provider.calls) == 2
-        assert "not json" in provider.calls[1][1]
+        # The repair continues the conversation: same rules, transcript, bad answer, then the error
+        system, repair = provider.calls[1]
+        assert system == SYSTEM_PROMPT
+        assert provider.histories[1] == [
+            {"role": "user", "content": provider.calls[0][1]},
+            {"role": "assistant", "content": "Sorry, here you go: not json"},
+        ]
+        assert "No JSON array found" in repair
 
     def test_clear_error_when_retry_also_fails(self):
         provider = FakeProvider("not json", "still not json")

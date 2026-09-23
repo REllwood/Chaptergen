@@ -249,3 +249,24 @@ class TestOllamaTemperature:
         chat = [body for body in sent if "messages" in body]
         assert chat[0]["options"]["temperature"] == 0.0
         assert chat[1]["options"]["temperature"] == 0.7
+
+
+HISTORY = [{"role": "user", "content": "transcript"}, {"role": "assistant", "content": "oops"}]
+
+
+class TestConversationHistory:
+
+    def test_ollama_sends_history_between_system_and_user(self, monkeypatch):
+        sent = []
+        monkeypatch.setattr(
+            ollama_module.httpx, "post",
+            lambda url, json, timeout: sent.append(json) or _response(200, json={"message": {"content": "[]"}}),
+        )
+        _ollama().complete("rules", "fix it", history=HISTORY)
+        chat = next(body for body in sent if "messages" in body)
+        assert [m["content"] for m in chat["messages"]] == ["rules", "transcript", "oops", "fix it"]
+
+    def test_openai_sends_history_between_system_and_user(self):
+        client = FakeOpenAIClient(_completion("[]"))
+        _openai(client).complete("rules", "fix it", history=HISTORY)
+        assert [m["content"] for m in client.requests[0]["messages"]] == ["rules", "transcript", "oops", "fix it"]

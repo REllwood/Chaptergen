@@ -49,7 +49,7 @@ def generate_chapters(
     _console.print("[dim]Sending transcript to model…[/dim]")
     raw = provider.complete(SYSTEM_PROMPT, user_prompt, temperature=config.temperature)
 
-    chapters = _parse_with_retry(provider, raw, config.temperature)
+    chapters = _parse_with_retry(provider, user_prompt, raw, config.temperature)
 
     chapters = enforce_rules(
         chapters,
@@ -67,8 +67,12 @@ def generate_chapters(
     )
 
 
-def _parse_with_retry(provider: LLMProvider, raw: str, temperature: float | None) -> list:
-    """Parse model output; on failure, send a repair prompt once."""
+def _parse_with_retry(provider: LLMProvider, user_prompt: str, raw: str, temperature: float | None) -> list:
+    """Parse model output; on failure, ask the model once to correct it.
+
+    The repair request continues the original conversation, so the model still
+    has the rules and the transcript, and is told what was wrong.
+    """
     try:
         return parse_chapters_json(raw)
     except ValueError as exc:
@@ -76,8 +80,16 @@ def _parse_with_retry(provider: LLMProvider, raw: str, temperature: float | None
         first_err = exc
         _console.print(f"[yellow]First parse failed ({escape(str(first_err))}), retrying with repair prompt…[/yellow]")
 
-    repair_user = f"Your previous output:\n{raw}\n\n{REPAIR_PROMPT}"
-    raw_retry = provider.complete(REPAIR_PROMPT, repair_user, temperature=temperature)
+    history = [
+        {"role": "user", "content": user_prompt},
+        {"role": "assistant", "content": raw},
+    ]
+    raw_retry = provider.complete(
+        SYSTEM_PROMPT,
+        REPAIR_PROMPT.format(error=first_err),
+        temperature=temperature,
+        history=history,
+    )
 
     try:
         return parse_chapters_json(raw_retry)

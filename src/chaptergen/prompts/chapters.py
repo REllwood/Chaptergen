@@ -20,7 +20,8 @@ Example output:
 """
 
 REPAIR_PROMPT = """\
-Your previous response was not valid JSON. Please output ONLY a JSON array of chapter objects.
+Your previous response couldn't be used: {error}
+Reply with ONLY the JSON array of chapters for the transcript above.
 Each object must have "start_seconds" (number) and "title" (string). No other text."""
 
 
