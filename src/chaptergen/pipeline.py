@@ -52,7 +52,9 @@ def _parse_with_retry(provider: LLMProvider, raw: str, temperature: float) -> li
     """Parse model output; on failure, send a repair prompt once."""
     try:
         return parse_chapters_json(raw)
-    except ValueError as first_err:
+    except ValueError as exc:
+        # Python unbinds the ``as`` name when the except block ends, so keep our own reference
+        first_err = exc
         _console.print(f"[yellow]First parse failed ({first_err}), retrying with repair prompt…[/yellow]")
 
     repair_user = f"Your previous output:\n{raw}\n\n{REPAIR_PROMPT}"
