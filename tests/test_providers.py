@@ -5,7 +5,7 @@ import pytest
 
 from chaptergen.config import ProviderConfig
 from chaptergen.providers import ollama as ollama_module
-from chaptergen.providers.ollama import OllamaProvider
+from chaptergen.providers.ollama import OllamaProvider, _context_size
 
 
 def _response(status: int, **kwargs) -> httpx.Response:
@@ -89,4 +89,45 @@ class TestOllamaComplete:
             raise httpx.ConnectError("refused")
         monkeypatch.setattr(ollama_module.httpx, "post", refuse)
         with pytest.raises(ConnectionError, match="ollama serve"):
+            _ollama().complete("system", "user")
+
+
+class TestOllamaContextWindow:
+
+    def test_short_prompt_still_leaves_room_for_reply(self):
+        size = _context_size(2_000, None)
+        assert 2_000 // 3 + 4096 <= size <= 8192
+        assert size % 2048 == 0
+
+    def test_long_prompt_gets_room_for_transcript_and_reply(self):
+        size = _context_size(90_000, None)
+        assert size >= 90_000 // 3 + 4096
+        assert size % 2048 == 0
+
+    def test_capped_at_model_limit(self):
+        assert _context_size(1_000_000, 8192) == 8192
+
+    def test_request_sets_num_ctx_from_model_limit(self, monkeypatch):
+        sent = []
+
+        def fake_post(url, json, timeout):
+            sent.append((url, json))
+            if url.endswith("/api/show"):
+                return _response(200, json={"model_info": {"llama.context_length": 8192}})
+            return _response(200, json={"message": {"content": "[]"}})
+
+        monkeypatch.setattr(ollama_module.httpx, "post", fake_post)
+        provider = _ollama()
+        provider.complete("system", "x" * 100_000)
+        provider.complete("system", "short")
+        chat_calls = [body for url, body in sent if url.endswith("/api/chat")]
+        assert chat_calls[0]["options"]["num_ctx"] == 8192
+        assert chat_calls[1]["options"]["num_ctx"] == _context_size(len("system") + len("short"), 8192)
+        assert sum(url.endswith("/api/show") for url, _ in sent) == 1
+
+    def test_timeout_gives_clear_error(self, monkeypatch):
+        def slow(*a, **k):
+            raise httpx.ReadTimeout("timed out")
+        monkeypatch.setattr(ollama_module.httpx, "post", slow)
+        with pytest.raises(RuntimeError, match="didn't respond within 10 minutes"):
             _ollama().complete("system", "user")

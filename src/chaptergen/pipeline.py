@@ -15,6 +15,9 @@ _console = Console(stderr=True)
 
 MAX_RETRIES = 1
 
+# Consecutive segments starting within this many seconds are sent as one line
+MERGE_WINDOW_SECONDS = 15
+
 
 def generate_chapters(
     *,
@@ -25,6 +28,7 @@ def generate_chapters(
     min_gap_seconds: int = 30,
 ) -> GenerationResult:
     """Run the full generation pipeline and return validated chapters."""
+    segments = condense_segments(segments)
     duration_hint = _estimate_duration(segments)
 
     user_prompt = build_user_prompt(
@@ -68,6 +72,21 @@ def _parse_with_retry(provider: LLMProvider, raw: str, temperature: float) -> li
             f"Model failed to produce valid chapter JSON after retry. "
             f"First error: {first_err}. Second error: {second_err}"
         ) from second_err
+
+
+def condense_segments(segments: list[Segment], window_seconds: float = MERGE_WINDOW_SECONDS) -> list[Segment]:
+    """Merge consecutive segments into lines covering roughly ``window_seconds`` each.
+
+    Subtitle files often have a cue every few seconds; sending each with its own
+    timestamp wastes context without helping chapter placement.
+    """
+    merged: list[Segment] = []
+    for seg in segments:
+        if merged and seg.start_seconds - merged[-1].start_seconds < window_seconds:
+            merged[-1] = Segment(start_seconds=merged[-1].start_seconds, text=f"{merged[-1].text} {seg.text}")
+        else:
+            merged.append(seg)
+    return merged
 
 
 def _estimate_duration(segments: list[Segment]) -> float | None:
