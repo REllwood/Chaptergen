@@ -80,6 +80,27 @@ class TestParseChaptersJson:
         )
         assert [c.title for c in parse_chapters_json(raw)] == ["Good", "Also good"]
 
+    def test_think_block_with_brackets(self):
+        raw = '<think>Maybe [0, 120] works? Or [intro]...</think>\n[{"start_seconds": 0, "title": "Intro"}]'
+        assert [c.title for c in parse_chapters_json(raw)] == ["Intro"]
+
+    def test_think_block_with_only_closing_tag(self):
+        raw = 'Chapters could be [a] or [b].</think>\n\n```json\n[{"start_seconds": 0, "title": "Intro"}]\n```'
+        assert [c.title for c in parse_chapters_json(raw)] == ["Intro"]
+
+    def test_brackets_in_preamble(self):
+        raw = 'Here is the [JSON] you asked for:\n[{"start_seconds": 0, "title": "Intro"}]\nHope that helps [smile]'
+        assert [c.title for c in parse_chapters_json(raw)] == ["Intro"]
+
+    def test_wrapped_in_object(self):
+        raw = '{"chapters": [{"start_seconds": 0, "title": "Intro"}, {"start_seconds": 60, "title": "Next"}]}'
+        assert len(parse_chapters_json(raw)) == 2
+
+    def test_truncated_output_reports_invalid_json(self):
+        raw = '[{"start_seconds": 0, "title": "Intro"}, {"start_sec'
+        with pytest.raises(ValueError, match="valid JSON"):
+            parse_chapters_json(raw)
+
 
 class TestParseTimestamp:
 
