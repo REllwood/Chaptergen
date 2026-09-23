@@ -3,16 +3,28 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+
+# One chat turn: {"role": "user" | "assistant", "content": "..."}
+Message = dict[str, str]
 
 
 class LLMProvider(ABC):
     """Common interface all providers must implement."""
 
     @abstractmethod
-    def complete(self, system_prompt: str, user_prompt: str, *, temperature: float | None = None) -> str:
+    def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        temperature: float | None = None,
+        history: Sequence[Message] = (),
+    ) -> str:
         """Send a prompt and return the raw text response.
 
-        ``temperature=None`` means the provider's default.
+        ``history`` holds earlier user/assistant turns, sent between the system
+        prompt and ``user_prompt``. ``temperature=None`` means the provider's default.
         """
 
     @abstractmethod
