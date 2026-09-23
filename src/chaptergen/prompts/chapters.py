@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from chaptergen.models import Segment
+from chaptergen.timestamps import format_timestamp
 
 SYSTEM_PROMPT = """\
 You are an expert YouTube editor who creates concise, descriptive video chapters.
@@ -35,13 +36,13 @@ def build_user_prompt(
     parts: list[str] = ["Here is the video transcript with timestamps:\n"]
 
     for seg in segments:
-        ts = _format_ts(seg.start_seconds)
+        ts = format_timestamp(seg.start_seconds)
         parts.append(f"[{ts}] {seg.text}")
 
     parts.append("")
 
     if video_duration_hint:
-        parts.append(f"Total video duration: approximately {_format_ts(video_duration_hint)}.")
+        parts.append(f"Total video duration: approximately {format_timestamp(video_duration_hint)}.")
 
     if max_chapters:
         parts.append(f"Generate at most {max_chapters} chapters.")
@@ -52,11 +53,3 @@ def build_user_prompt(
 
     return "\n".join(parts)
 
-
-def _format_ts(seconds: float) -> str:
-    h = int(seconds) // 3600
-    m = (int(seconds) % 3600) // 60
-    s = int(seconds) % 60
-    if h > 0:
-        return f"{h}:{m:02d}:{s:02d}"
-    return f"{m}:{s:02d}"

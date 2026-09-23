@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 import httpx
 
-from chaptergen.config import ProviderConfig
+from chaptergen.config import DEFAULT_OLLAMA_URL, ProviderConfig
 from chaptergen.providers.base import LLMProvider, Message
 
 # Long transcripts on CPU-only machines can take several minutes to process
@@ -43,7 +43,7 @@ def _error_detail(resp: httpx.Response) -> str:
 class OllamaProvider(LLMProvider):
 
     def __init__(self, config: ProviderConfig) -> None:
-        self._base_url = (config.base_url or "http://localhost:11434").rstrip("/")
+        self._base_url = (config.base_url or DEFAULT_OLLAMA_URL).rstrip("/")
         self._model = config.model
         self._model_limit: int | None = None
         self._model_limit_checked = False
