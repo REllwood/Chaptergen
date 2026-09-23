@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from rich.console import Console
+from rich.markup import escape
 
 from chaptergen.config import ProviderConfig
 from chaptergen.models import GenerationResult, Segment
@@ -55,7 +56,7 @@ def _parse_with_retry(provider: LLMProvider, raw: str, temperature: float) -> li
     except ValueError as exc:
         # Python unbinds the ``as`` name when the except block ends, so keep our own reference
         first_err = exc
-        _console.print(f"[yellow]First parse failed ({first_err}), retrying with repair prompt…[/yellow]")
+        _console.print(f"[yellow]First parse failed ({escape(str(first_err))}), retrying with repair prompt…[/yellow]")
 
     repair_user = f"Your previous output:\n{raw}\n\n{REPAIR_PROMPT}"
     raw_retry = provider.complete(REPAIR_PROMPT, repair_user, temperature=temperature)
