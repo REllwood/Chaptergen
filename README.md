@@ -52,6 +52,8 @@ chaptergen generate --input transcript.srt --provider openai --model gpt-4o-mini
 | SubRip | `.srt` | Standard subtitle format |
 | WebVTT | `.vtt` | Web subtitle format |
 
+If a transcript has no timestamps at all, chapter times are estimated from a steady speaking pace. Pass `--duration` with the video length to improve the estimates.
+
 ## Usage
 
 ### Generate Chapters
@@ -75,6 +77,7 @@ chaptergen generate --input <file> [options]
 | `--temperature` | `0.0` | Sampling temperature |
 | `--max-chapters` | — | Suggest max chapter count to LLM |
 | `--min-gap` | `30` | Minimum seconds between chapters |
+| `--duration` | — | Video length (e.g. `12:34`); improves timings for transcripts without timestamps |
 
 ### Check Provider
 

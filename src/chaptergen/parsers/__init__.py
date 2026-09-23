@@ -6,7 +6,9 @@ from pathlib import Path
 
 from chaptergen.models import Segment
 from chaptergen.parsers.subtitles import parse_srt, parse_vtt
-from chaptergen.parsers.transcript import parse_transcript
+from chaptergen.parsers.transcript import estimate_timings, parse_transcript
+
+__all__ = ["estimate_timings", "load_segments"]
 
 
 def load_segments(path: Path) -> list[Segment]:

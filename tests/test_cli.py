@@ -178,6 +178,49 @@ class TestCLI:
         assert "[/INST] unexpected" in result.stderr
 
 
+class TestUntimedTranscripts:
+
+    @patch("chaptergen.cli.get_provider")
+    @patch("chaptergen.cli.generate_chapters")
+    def test_timings_estimated_with_warning(self, mock_gen, mock_get_prov):
+        mock_gen.return_value = GenerationResult(chapters=[Chapter(start_seconds=0, title="Intro")])
+        mock_get_prov.return_value = MagicMock()
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample_no_ts.txt")])
+        assert result.exit_code == 0
+        starts = [s.start_seconds for s in mock_gen.call_args.kwargs["segments"]]
+        assert starts[0] == 0
+        assert starts == sorted(starts) and starts[-1] > 0
+        assert "no timestamps" in result.stderr
+        assert "--duration" in result.stderr
+
+    @patch("chaptergen.cli.get_provider")
+    @patch("chaptergen.cli.generate_chapters")
+    def test_duration_scales_estimates(self, mock_gen, mock_get_prov):
+        mock_gen.return_value = GenerationResult(chapters=[Chapter(start_seconds=0, title="Intro")])
+        mock_get_prov.return_value = MagicMock()
+        args = ["generate", "--input", str(FIXTURES / "sample_no_ts.txt"), "--duration", "10:00"]
+        result = _runner().invoke(main, args)
+        assert result.exit_code == 0
+        assert mock_gen.call_args.kwargs["duration_seconds"] == 600
+        assert 500 < mock_gen.call_args.kwargs["segments"][-1].start_seconds < 600
+        assert "Pass --duration" not in result.stderr
+
+    @patch("chaptergen.cli.get_provider")
+    @patch("chaptergen.cli.generate_chapters")
+    def test_timed_transcript_left_alone(self, mock_gen, mock_get_prov):
+        mock_gen.return_value = GenerationResult(chapters=[Chapter(start_seconds=0, title="Intro")])
+        mock_get_prov.return_value = MagicMock()
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt")])
+        assert result.exit_code == 0
+        assert mock_gen.call_args.kwargs["segments"][2].start_seconds == 135
+        assert "no timestamps" not in result.stderr
+
+    def test_invalid_duration(self):
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt"), "--duration", "soon"])
+        assert result.exit_code == 2
+        assert "video length" in result.stderr
+
+
 class TestCLIErrors:
     """User mistakes should produce a one-line error, not a traceback."""
 

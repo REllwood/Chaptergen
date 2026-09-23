@@ -13,13 +13,31 @@ from rich.markup import escape
 from chaptergen import __version__
 from chaptergen.config import resolve_config
 from chaptergen.output import render
-from chaptergen.parsers import load_segments
+from chaptergen.parsers import estimate_timings, load_segments
 from chaptergen.pipeline import generate_chapters
 from chaptergen.providers import get_provider
+from chaptergen.timestamps import parse_timestamp
 
 console = Console(stderr=True)
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".srt", ".vtt"}
+
+
+class _Duration(click.ParamType):
+    """A video length given as seconds, MM:SS or H:MM:SS."""
+
+    name = "duration"
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, (int, float)):
+            return float(value)
+        try:
+            seconds = parse_timestamp(value)
+        except ValueError:
+            seconds = 0
+        if seconds <= 0:
+            self.fail(f"{value!r} isn't a video length like 754, 12:34 or 1:02:03", param, ctx)
+        return seconds
 
 
 def _fail(message: str) -> NoReturn:
@@ -46,6 +64,7 @@ def main() -> None:
 @click.option("--output", "-o", "output_path", default=None, type=click.Path(path_type=Path), help="Write output to file instead of stdout")
 @click.option("--max-chapters", default=None, type=int, help="Suggest a maximum number of chapters to the LLM")
 @click.option("--min-gap", default=30, type=int, show_default=True, help="Minimum seconds between chapters")
+@click.option("--duration", default=None, type=_Duration(), help="Video length (e.g. 12:34); used to time transcripts without timestamps")
 def generate(
     input_path: Path,
     provider: str | None,
@@ -58,6 +77,7 @@ def generate(
     output_path: Path | None,
     max_chapters: int | None,
     min_gap: int,
+    duration: float | None,
 ) -> None:
     """Generate chapters from a transcript file."""
     ext = input_path.suffix.lower()
@@ -87,6 +107,14 @@ def generate(
 
     console.print(f"[dim]Parsed {len(segments)} segments from {escape(input_path.name)}[/dim]")
 
+    if len(segments) > 1 and not any(seg.start_seconds > 0 for seg in segments):
+        segments = estimate_timings(segments, duration_seconds=duration)
+        hint = "" if duration else " Pass --duration with the video length for better estimates."
+        console.print(
+            "[yellow]The transcript has no timestamps, so chapter times are estimated "
+            f"from a steady speaking pace.{hint}[/yellow]"
+        )
+
     try:
         llm = get_provider(cfg)
     except (ImportError, ValueError) as exc:
@@ -99,6 +127,7 @@ def generate(
             config=cfg,
             max_chapters=max_chapters,
             min_gap_seconds=min_gap,
+            duration_seconds=duration,
         )
     except Exception as exc:
         _fail(f"Generation failed: {exc}")
