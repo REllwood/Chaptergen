@@ -15,6 +15,7 @@ from chaptergen.config import resolve_config
 from chaptergen.output import render
 from chaptergen.parsers import estimate_timings, load_segments
 from chaptergen.pipeline import generate_chapters
+from chaptergen.postprocess import youtube_problems
 from chaptergen.providers import get_provider
 from chaptergen.timestamps import parse_timestamp
 
@@ -131,6 +132,9 @@ def generate(
         )
     except Exception as exc:
         _fail(f"Generation failed: {exc}")
+
+    for problem in youtube_problems(result.chapters):
+        console.print(f"[yellow]Warning: {escape(problem)}[/yellow]")
 
     output_text = render(result, fmt=fmt)
 

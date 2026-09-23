@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 import math
 import re
+from itertools import pairwise
 
 from chaptergen.models import Chapter
 from chaptergen.timestamps import parse_timestamp
 
-# YouTube ignores chapter lists containing a chapter shorter than this
+# YouTube only shows chapters when the list has at least this many...
+YOUTUBE_MIN_CHAPTERS = 3
+# ...and none is shorter than this
 YOUTUBE_MIN_CHAPTER_SECONDS = 10
 
 # Models sometimes rename the start-time key; accept the common variants
@@ -69,9 +72,16 @@ def enforce_rules(
     *,
     min_gap_seconds: int = 30,
     max_chapters: int | None = None,
+    latest_start_seconds: float | None = None,
 ) -> list[Chapter]:
-    """Apply YouTube-friendly business rules to chapter list."""
+    """Apply YouTube-friendly business rules to chapter list.
+
+    Chapters starting after ``latest_start_seconds`` (past the end of the
+    video or transcript) are dropped.
+    """
     chapters = sorted(chapters, key=lambda c: c.start_seconds)
+    if latest_start_seconds is not None:
+        chapters = [c for c in chapters if c.start_seconds <= latest_start_seconds]
 
     # Ensure the first chapter starts at 0:00. One that starts just after 0:00 is
     # moved there; inserting an "Introduction" instead would leave it too close
@@ -111,11 +121,23 @@ def enforce_rules(
             )
             del chapters[shortest]
 
-    # YouTube requires at least 3 chapters (including 0:00) for the feature to activate
-    if len(chapters) < 3:
-        pass  # Return what we have — better than fabricating chapters
-
     return chapters
+
+
+def youtube_problems(chapters: list[Chapter]) -> list[str]:
+    """Reasons YouTube would ignore this chapter list, if any."""
+    problems: list[str] = []
+    if len(chapters) < YOUTUBE_MIN_CHAPTERS:
+        problems.append(
+            f"YouTube only shows chapters when there are at least {YOUTUBE_MIN_CHAPTERS}, "
+            f"and this list has {len(chapters)}. Try a lower --min-gap or a different model."
+        )
+    if any(b.start_seconds - a.start_seconds < YOUTUBE_MIN_CHAPTER_SECONDS for a, b in pairwise(chapters)):
+        problems.append(
+            f"Some chapters are shorter than YouTube's {YOUTUBE_MIN_CHAPTER_SECONDS}-second minimum, "
+            "so YouTube won't show them. Raise --min-gap to at least 10."
+        )
+    return problems
 
 
 def _load_json_array(raw: str) -> list:

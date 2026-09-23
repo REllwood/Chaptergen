@@ -5,7 +5,7 @@ import json
 import pytest
 
 from chaptergen.models import Chapter
-from chaptergen.postprocess import enforce_rules, parse_chapters_json
+from chaptergen.postprocess import enforce_rules, parse_chapters_json, youtube_problems
 from chaptergen.timestamps import parse_timestamp
 
 
@@ -191,7 +191,30 @@ class TestEnforceRules:
         chapters = [Chapter(start_seconds=t, title=str(t)) for t in [0, 60, 120]]
         assert len(enforce_rules(chapters, max_chapters=10)) == 3
 
+    def test_chapters_after_latest_start_dropped(self):
+        chapters = [Chapter(start_seconds=t, title=str(t)) for t in [0, 120, 300, 900]]
+        result = enforce_rules(chapters, latest_start_seconds=600)
+        assert [c.start_seconds for c in result] == [0, 120, 300]
+
     def test_empty_input(self):
         result = enforce_rules([])
         assert len(result) == 1
         assert result[0].title == "Introduction"
+
+
+class TestYoutubeProblems:
+
+    def test_valid_list(self):
+        chapters = [Chapter(start_seconds=t, title=str(t)) for t in [0, 60, 120]]
+        assert youtube_problems(chapters) == []
+
+    def test_too_few_chapters(self):
+        problems = youtube_problems([Chapter(start_seconds=0, title="A"), Chapter(start_seconds=60, title="B")])
+        assert len(problems) == 1
+        assert "at least 3" in problems[0]
+
+    def test_chapter_too_short(self):
+        chapters = [Chapter(start_seconds=t, title=str(t)) for t in [0, 5, 60]]
+        problems = youtube_problems(chapters)
+        assert len(problems) == 1
+        assert "10-second minimum" in problems[0]
