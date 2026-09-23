@@ -148,6 +148,25 @@ class TestCueParsing:
         f.write_text("1\n1:02:03,500 --> 1:02:05,000\nLate in the video\n")
         assert parse_srt(f)[0].start_seconds == 3723.5
 
+    def test_youtube_auto_captions(self):
+        # Rolling layout from YouTube's auto-generated captions (e.g. yt-dlp --write-auto-subs)
+        segs = parse_vtt(FIXTURES / "youtube_auto.vtt")
+        assert [(s.start_seconds, s.text) for s in segs] == [
+            (0.16, "hey everyone welcome back"),
+            (2.32, "to the channel"),
+            (5.04, "today we're building"),
+        ]
+
+    def test_srt_missing_blank_line_before_cue_number(self, tmp_path):
+        f = tmp_path / "squashed.srt"
+        f.write_text("1\n00:00:00,000 --> 00:00:02,000\nFirst\n2\n00:00:03,000 --> 00:00:05,000\nSecond\n")
+        assert [s.text for s in parse_srt(f)] == ["First", "Second"]
+
+    def test_whitespace_separator_lines_in_srt(self, tmp_path):
+        f = tmp_path / "spaces.srt"
+        f.write_text("1\n00:00:00,000 --> 00:00:02,000\nFirst\n  \n2\n00:00:03,000 --> 00:00:05,000\nSecond\n")
+        assert [s.text for s in parse_srt(f)] == ["First", "Second"]
+
 
 class TestLoadSegments:
 

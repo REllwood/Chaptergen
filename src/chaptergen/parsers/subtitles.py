@@ -47,19 +47,26 @@ def _parse_cues(raw: str, ts_pattern: re.Pattern[str], *, unescape: bool = False
 
     Lines before a timing line (SRT cue numbers, VTT cue identifiers, the
     WEBVTT header, NOTE/STYLE/REGION blocks) are ignored, and a blank line
-    ends the current cue.
+    ends the current cue. Lines repeating the previous caption line are
+    dropped, which undoes the "rolling" layout of YouTube's auto-generated
+    captions where each cue starts with the line before it.
     """
     cues: list[tuple[float, list[str]]] = []
     in_cue = False
 
-    for line in raw.splitlines():
-        line = line.strip()
+    for raw_line in raw.splitlines():
+        line = raw_line.strip()
         if not line:
-            in_cue = False
+            # YouTube's auto-captions put a single-space line before the text,
+            # so a whitespace-only line doesn't end a cue that has no text yet
+            if not (raw_line and in_cue and not cues[-1][1]):
+                in_cue = False
             continue
 
         ts_match = ts_pattern.match(line)
         if ts_match and "-->" in line:
+            if in_cue and cues[-1][1] and cues[-1][1][-1].isdigit():
+                cues[-1][1].pop()  # next cue's number, when the blank line between cues is missing
             start_seconds = _ts_to_seconds(
                 ts_match.group("h"),
                 ts_match.group("m"),
@@ -72,9 +79,16 @@ def _parse_cues(raw: str, ts_pattern: re.Pattern[str], *, unescape: bool = False
             cues[-1][1].append(line)
 
     segments: list[Segment] = []
+    previous_line = None
     for start_seconds, text_lines in cues:
-        cleaned = _clean_text(" ".join(text_lines), unescape=unescape)
-        if cleaned:
-            segments.append(Segment(start_seconds=start_seconds, text=cleaned))
+        kept: list[str] = []
+        for text_line in text_lines:
+            cleaned = _clean_text(text_line, unescape=unescape)
+            if not cleaned or cleaned == previous_line:
+                continue
+            kept.append(cleaned)
+            previous_line = cleaned
+        if kept:
+            segments.append(Segment(start_seconds=start_seconds, text=" ".join(kept)))
 
     return segments
