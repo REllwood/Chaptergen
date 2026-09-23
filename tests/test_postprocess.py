@@ -6,6 +6,7 @@ import pytest
 
 from chaptergen.models import Chapter
 from chaptergen.postprocess import enforce_rules, parse_chapters_json
+from chaptergen.timestamps import parse_timestamp
 
 
 class TestParseChaptersJson:
@@ -50,6 +51,49 @@ class TestParseChaptersJson:
     def test_empty_array_raises(self):
         with pytest.raises(ValueError, match="No valid chapters"):
             parse_chapters_json("[]")
+
+    def test_string_timestamps_accepted(self):
+        raw = json.dumps([
+            {"start_seconds": "0:00", "title": "Intro"},
+            {"start_seconds": "2:15", "title": "Setup"},
+            {"start_seconds": "1:02:03", "title": "Late"},
+            {"start_seconds": "95", "title": "Plain seconds"},
+        ])
+        assert [c.start_seconds for c in parse_chapters_json(raw)] == [0, 135, 3723, 95]
+
+    def test_alternative_start_key(self):
+        raw = json.dumps([{"timestamp": "05:30", "title": "Renamed key"}])
+        assert parse_chapters_json(raw)[0].start_seconds == 330
+
+    def test_one_bad_entry_does_not_sink_the_rest(self):
+        raw = (
+            '[{"start_seconds": 0, "title": "Good"},'
+            ' {"start_seconds": "soon", "title": "Unparseable"},'
+            ' {"start_seconds": NaN, "title": "Not a number"},'
+            ' {"start_seconds": Infinity, "title": "Infinite"},'
+            ' {"start_seconds": -5, "title": "Negative"},'
+            ' {"start_seconds": true, "title": "Boolean"},'
+            ' {"start_seconds": [1], "title": "List"},'
+            ' {"start_seconds": 30, "title": "   "},'
+            ' {"start_seconds": 40, "title": null},'
+            ' {"start_seconds": 60, "title": "Also good"}]'
+        )
+        assert [c.title for c in parse_chapters_json(raw)] == ["Good", "Also good"]
+
+
+class TestParseTimestamp:
+
+    @pytest.mark.parametrize(("value", "expected"), [
+        ("0:00", 0), ("2:15", 135), ("02:15", 135), ("1:02:03", 3723),
+        ("12:30.5", 750.5), ("95", 95), (" 7 ", 7),
+    ])
+    def test_valid(self, value, expected):
+        assert parse_timestamp(value) == expected
+
+    @pytest.mark.parametrize("value", ["", "soon", "nan", "inf", "-5", "1:2:3:4", "2:15pm"])
+    def test_invalid(self, value):
+        with pytest.raises(ValueError):
+            parse_timestamp(value)
 
 
 class TestEnforceRules:
