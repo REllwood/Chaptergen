@@ -149,7 +149,10 @@ Chapters:
 ```bash
 pip install -e ".[all]"
 pytest
+ruff check .
 ```
+
+CI runs both on Python 3.10–3.13 for every push to `main` and every pull request.
 
 ## Troubleshooting
 

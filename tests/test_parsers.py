@@ -201,11 +201,8 @@ class TestLoadSegments:
     def test_unsupported_extension(self, tmp_path):
         f = tmp_path / "bad.csv"
         f.write_text("data")
-        try:
+        with pytest.raises(ValueError, match="Unsupported file extension"):
             load_segments(f)
-            assert False, "Should have raised"
-        except ValueError:
-            pass
 
 
 class TestFileEncodings:

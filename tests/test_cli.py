@@ -66,11 +66,8 @@ class TestOutputRenderers:
         assert data["chapters"][1]["timestamp"] == "00:12"
 
     def test_unknown_format_raises(self):
-        try:
+        with pytest.raises(ValueError, match="Unknown format"):
             render(self.RESULT, fmt="xml")
-            assert False, "Should have raised"
-        except ValueError:
-            pass
 
 
 class TestCLI:
@@ -150,7 +147,7 @@ class TestCLI:
             "A fairly long chapter title that an LLM might plausibly produce for a talk section",
         ]
         mock_gen.return_value = GenerationResult(
-            chapters=[Chapter(start_seconds=s, title=t) for s, t in zip([0, 95, 400], titles)],
+            chapters=[Chapter(start_seconds=s, title=t) for s, t in zip([0, 95, 400], titles, strict=True)],
             provider="ollama",
             model="llama3.1",
         )
@@ -159,7 +156,7 @@ class TestCLI:
 
         result = _runner().invoke(main, args)
         assert result.exit_code == 0
-        assert result.stdout.splitlines() == [f"{ts} {t}" for ts, t in zip(["00:00", "01:35", "06:40"], titles)]
+        assert result.stdout.splitlines() == [f"{ts} {t}" for ts, t in zip(["00:00", "01:35", "06:40"], titles, strict=True)]
 
         result = _runner().invoke(main, [*args, "--format", "json"])
         assert result.exit_code == 0
