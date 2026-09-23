@@ -131,3 +131,121 @@ class TestOllamaContextWindow:
         monkeypatch.setattr(ollama_module.httpx, "post", slow)
         with pytest.raises(RuntimeError, match="didn't respond within 10 minutes"):
             _ollama().complete("system", "user")
+
+
+class FakeOpenAIClient:
+    """Stands in for openai.OpenAI: records requests and replays scripted results."""
+
+    def __init__(self, *results, models=("gpt-5-mini", "gpt-4o-mini")):
+        self.requests: list[dict] = []
+        self._results = list(results)
+        self._models = models
+        self.chat = self
+        self.completions = self
+
+    def create(self, **request):
+        self.requests.append(request)
+        result = self._results.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    def list(self):
+        from types import SimpleNamespace
+        return [SimpleNamespace(id=m) for m in self._models]
+
+    @property
+    def models(self):
+        return self
+
+
+def _completion(content: str):
+    from types import SimpleNamespace
+    return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+
+def _openai(client: FakeOpenAIClient, model: str = "gpt-5-mini"):
+    pytest.importorskip("openai")
+    from chaptergen.providers.openai import OpenAIProvider
+
+    provider = OpenAIProvider(ProviderConfig(provider="openai", model=model, api_key="sk-test"))
+    provider._client = client
+    return provider
+
+
+def _temperature_error():
+    import openai
+
+    return openai.BadRequestError(
+        "Error code: 400",
+        response=httpx.Response(400, request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions")),
+        body={
+            "message": "Unsupported value: 'temperature' does not support 0.0 with this model.",
+            "param": "temperature",
+            "code": "unsupported_value",
+        },
+    )
+
+
+class TestOpenAIProvider:
+
+    def test_temperature_omitted_by_default(self):
+        client = FakeOpenAIClient(_completion("[]"))
+        assert _openai(client).complete("system", "user") == "[]"
+        assert "temperature" not in client.requests[0]
+
+    def test_temperature_sent_when_given(self):
+        client = FakeOpenAIClient(_completion("[]"))
+        _openai(client, model="gpt-4o-mini").complete("system", "user", temperature=0.2)
+        assert client.requests[0]["temperature"] == 0.2
+
+    def test_unsupported_temperature_retried_without_it(self):
+        client = FakeOpenAIClient(_temperature_error(), _completion("[]"), _completion("[]"))
+        provider = _openai(client)
+        assert provider.complete("system", "user", temperature=0.0) == "[]"
+        assert "temperature" in client.requests[0]
+        assert "temperature" not in client.requests[1]
+        # Remembered for later calls, e.g. the repair retry
+        provider.complete("system", "user", temperature=0.0)
+        assert "temperature" not in client.requests[2]
+
+    def test_other_bad_requests_still_raise(self):
+        import openai
+
+        error = openai.BadRequestError(
+            "Error code: 400",
+            response=httpx.Response(400, request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions")),
+            body={"message": "Context too long", "param": "messages", "code": "context_length_exceeded"},
+        )
+        client = FakeOpenAIClient(error)
+        with pytest.raises(openai.BadRequestError):
+            _openai(client).complete("system", "user", temperature=0.0)
+
+    def test_health_check_model_available(self):
+        ok, msg = _openai(FakeOpenAIClient()).health_check()
+        assert ok, msg
+
+    def test_health_check_model_missing(self):
+        ok, msg = _openai(FakeOpenAIClient(models=("gpt-4o-mini",))).health_check()
+        assert not ok
+        assert "isn't available" in msg
+
+    def test_health_check_server_without_model_list(self):
+        ok, msg = _openai(FakeOpenAIClient(models=())).health_check()
+        assert ok
+        assert "couldn't be confirmed" in msg
+
+
+class TestOllamaTemperature:
+
+    def test_defaults_to_zero(self, monkeypatch):
+        sent = []
+        monkeypatch.setattr(
+            ollama_module.httpx, "post",
+            lambda url, json, timeout: sent.append(json) or _response(200, json={"message": {"content": "[]"}}),
+        )
+        _ollama().complete("system", "user")
+        _ollama().complete("system", "user", temperature=0.7)
+        chat = [body for body in sent if "messages" in body]
+        assert chat[0]["options"]["temperature"] == 0.0
+        assert chat[1]["options"]["temperature"] == 0.7

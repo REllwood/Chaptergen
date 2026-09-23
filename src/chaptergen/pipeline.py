@@ -54,7 +54,7 @@ def generate_chapters(
     )
 
 
-def _parse_with_retry(provider: LLMProvider, raw: str, temperature: float) -> list:
+def _parse_with_retry(provider: LLMProvider, raw: str, temperature: float | None) -> list:
     """Parse model output; on failure, send a repair prompt once."""
     try:
         return parse_chapters_json(raw)

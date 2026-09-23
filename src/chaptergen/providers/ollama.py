@@ -46,13 +46,14 @@ class OllamaProvider(LLMProvider):
         self._model_limit: int | None = None
         self._model_limit_checked = False
 
-    def complete(self, system_prompt: str, user_prompt: str, *, temperature: float = 0.0) -> str:
+    def complete(self, system_prompt: str, user_prompt: str, *, temperature: float | None = None) -> str:
         url = f"{self._base_url}/api/chat"
         num_ctx = _context_size(len(system_prompt) + len(user_prompt), self._context_limit())
         payload = {
             "model": self._model,
             "stream": False,
-            "options": {"temperature": temperature, "num_ctx": num_ctx},
+            # Default to 0 for the most repeatable chapters from local models
+            "options": {"temperature": 0.0 if temperature is None else temperature, "num_ctx": num_ctx},
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

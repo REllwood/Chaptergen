@@ -41,7 +41,7 @@ chaptergen generate --input transcript.srt --format youtube
 
 ```bash
 export OPENAI_API_KEY=sk-...
-chaptergen generate --input transcript.srt --provider openai --model gpt-4o-mini --format youtube
+chaptergen generate --input transcript.srt --provider openai --model gpt-5-mini --format youtube
 ```
 
 ## Supported Input Formats
@@ -68,13 +68,13 @@ chaptergen generate --input <file> [options]
 |------|---------|-------------|
 | `--input`, `-i` | *(required)* | Path to transcript file |
 | `--provider`, `-p` | `ollama` | LLM provider (`ollama`, `openai`) |
-| `--model`, `-m` | `llama3.1` / `gpt-4o-mini` | Model name |
+| `--model`, `-m` | `llama3.1` / `gpt-5-mini` | Model name |
 | `--format`, `-f` | `chapters` | Output format (`chapters`, `youtube`, `json`) |
 | `--output`, `-o` | stdout | Write to file |
 | `--api-key` | — | API key (prefer `--api-key-env`) |
 | `--api-key-env` | — | Env var name holding API key |
 | `--base-url` | — | Override provider URL |
-| `--temperature` | `0.0` | Sampling temperature |
+| `--temperature` | `0` (Ollama) / model default (OpenAI) | Sampling temperature. Reasoning models such as the GPT-5 family only support their default, so it's ignored for them |
 | `--max-chapters` | — | Suggest max chapter count to LLM |
 | `--min-gap` | `30` | Minimum seconds between chapters |
 | `--duration` | — | Video length (e.g. `12:34`); improves timings for transcripts without timestamps |
