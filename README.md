@@ -48,7 +48,7 @@ chaptergen generate --input transcript.srt --provider openai --model gpt-4o-mini
 
 | Format | Extensions | Notes |
 |--------|-----------|-------|
-| Plain text | `.txt`, `.md` | Timestamps optional (`MM:SS` or `HH:MM:SS` prefix) |
+| Plain text | `.txt`, `.md` | Timestamps optional: `MM:SS` or `HH:MM:SS` at the start of a line, or on a line of their own (as copied from YouTube's "Show transcript" panel) |
 | SubRip | `.srt` | Standard subtitle format |
 | WebVTT | `.vtt` | Web subtitle format |
 

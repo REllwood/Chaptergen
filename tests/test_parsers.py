@@ -39,6 +39,37 @@ class TestTranscriptParser:
         assert segs[0].start_seconds == 3750.0
         assert segs[1].start_seconds == 7200.0
 
+    def test_untimed_lines_continue_previous_timestamp(self, tmp_path):
+        f = tmp_path / "mixed.txt"
+        f.write_text("0:00 Intro\n10:00 Main topic starts\nand this line continues it\n12:00 Wrap up\n")
+        segs = parse_transcript(f)
+        assert [s.start_seconds for s in segs] == [0, 600, 600, 720]
+        assert segs[2].text == "and this line continues it"
+
+    def test_timestamp_on_its_own_line(self, tmp_path):
+        # Layout produced by copying YouTube's "Show transcript" panel
+        f = tmp_path / "youtube.txt"
+        f.write_text("0:00\nwelcome to the video\n0:45\ntoday we look at parsing\n1:02:03\nand we're done\n")
+        segs = parse_transcript(f)
+        assert [(s.start_seconds, s.text) for s in segs] == [
+            (0, "welcome to the video"),
+            (45, "today we look at parsing"),
+            (3723, "and we're done"),
+        ]
+
+    def test_text_before_first_timestamp_starts_at_zero(self, tmp_path):
+        f = tmp_path / "preamble.txt"
+        f.write_text("Episode 12 transcript\n1:30 First topic\n")
+        segs = parse_transcript(f)
+        assert [s.start_seconds for s in segs] == [0, 90]
+
+    def test_digits_after_seconds_are_not_a_timestamp(self, tmp_path):
+        f = tmp_path / "numbers.txt"
+        f.write_text("1:234 is not a timestamp\n")
+        segs = parse_transcript(f)
+        assert segs[0].start_seconds == 0
+        assert segs[0].text == "1:234 is not a timestamp"
+
     def test_empty_file(self, tmp_path):
         f = tmp_path / "empty.txt"
         f.write_text("")

@@ -1,9 +1,11 @@
 """Parse plain-text and markdown transcript files into timed segments.
 
 Supports two formats:
-  1. Timestamped lines:  ``HH:MM:SS`` or ``MM:SS`` prefix followed by text.
-  2. Un-timestamped lines: each non-empty line becomes a segment with
-     ``start_seconds=0`` so the LLM can still infer topic boundaries.
+  1. Timestamped lines:  ``HH:MM:SS`` or ``MM:SS`` prefix followed by text,
+     or a timestamp on its own line with the text on the following lines
+     (the layout YouTube's "Show transcript" panel copies as).
+  2. Un-timestamped lines: each line carries on from the most recent
+     timestamp, or starts at 0 if the file has no timestamps at all.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from chaptergen.models import Segment
 _TS_PATTERN = re.compile(
     r"^[\[\(]?"
     r"(?:(?P<h>\d{1,2}):)?"
-    r"(?P<m>\d{1,2}):(?P<s>\d{2})"
+    r"(?P<m>\d{1,2}):(?P<s>\d{2})(?!\d)"
     r"[\]\)]?\s*[-–—:]?\s*"
 )
 
@@ -29,7 +31,7 @@ def parse_transcript(path: Path) -> list[Segment]:
     """Return a list of :class:`Segment` from a ``.txt`` or ``.md`` file."""
     text = path.read_text(encoding="utf-8")
     segments: list[Segment] = []
-    has_timestamps = False
+    current_start = 0.0
 
     for line in text.splitlines():
         line = line.strip()
@@ -38,20 +40,11 @@ def parse_transcript(path: Path) -> list[Segment]:
 
         match = _TS_PATTERN.match(line)
         if match:
-            has_timestamps = True
-            secs = _ts_to_seconds(match.group("h"), match.group("m"), match.group("s"))
-            body = line[match.end():].strip()
-            if body:
-                segments.append(Segment(start_seconds=secs, text=body))
-        else:
-            segments.append(Segment(start_seconds=0.0, text=line))
+            current_start = _ts_to_seconds(match.group("h"), match.group("m"), match.group("s"))
+            line = line[match.end():].strip()
+            if not line:
+                continue
 
-    if not has_timestamps:
-        total = len(segments)
-        if total > 0:
-            segments = [
-                Segment(start_seconds=0.0, text=seg.text)
-                for seg in segments
-            ]
+        segments.append(Segment(start_seconds=current_start, text=line))
 
     return segments
