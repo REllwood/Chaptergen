@@ -13,6 +13,14 @@ from chaptergen.output import render
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def _runner() -> CliRunner:
+    """CliRunner that keeps stdout and stderr separate on every supported Click version."""
+    try:
+        return CliRunner(mix_stderr=False)
+    except TypeError:  # Click 8.2+ always keeps them separate
+        return CliRunner()
+
+
 class TestOutputRenderers:
 
     RESULT = GenerationResult(
@@ -124,3 +132,47 @@ class TestCLI:
         assert out_file.exists()
         content = out_file.read_text()
         assert "00:00 Intro" in content
+
+    @patch("chaptergen.cli.get_provider")
+    @patch("chaptergen.cli.generate_chapters")
+    def test_stdout_is_not_reformatted(self, mock_gen, mock_get_prov):
+        titles = [
+            "Intro",
+            "[live] Demo of the :fire: feature",
+            "A fairly long chapter title that an LLM might plausibly produce for a talk section",
+        ]
+        mock_gen.return_value = GenerationResult(
+            chapters=[Chapter(start_seconds=s, title=t) for s, t in zip([0, 95, 400], titles)],
+            provider="ollama",
+            model="llama3.1",
+        )
+        mock_get_prov.return_value = MagicMock()
+        args = ["generate", "--input", str(FIXTURES / "sample.txt")]
+
+        result = _runner().invoke(main, args)
+        assert result.exit_code == 0
+        assert result.stdout.splitlines() == [f"{ts} {t}" for ts, t in zip(["00:00", "01:35", "06:40"], titles)]
+
+        result = _runner().invoke(main, [*args, "--format", "json"])
+        assert result.exit_code == 0
+        assert [c["title"] for c in json.loads(result.stdout)["chapters"]] == titles
+
+    @patch("chaptergen.cli.get_provider")
+    @patch("chaptergen.cli.generate_chapters")
+    def test_markup_like_filename_shown_verbatim(self, mock_gen, mock_get_prov, tmp_path):
+        mock_gen.return_value = GenerationResult(chapters=[Chapter(start_seconds=0, title="Intro")])
+        mock_get_prov.return_value = MagicMock()
+        f = tmp_path / "[red]talk.txt"
+        f.write_text((FIXTURES / "sample.txt").read_text())
+        result = _runner().invoke(main, ["generate", "--input", str(f)])
+        assert result.exit_code == 0, result.output
+        assert "[red]talk.txt" in result.stderr
+
+    @patch("chaptergen.cli.get_provider")
+    @patch("chaptergen.cli.generate_chapters")
+    def test_markup_in_error_message_does_not_crash(self, mock_gen, mock_get_prov):
+        mock_gen.side_effect = RuntimeError("Ollama returned 500: [/INST] unexpected")
+        mock_get_prov.return_value = MagicMock()
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt")])
+        assert result.exit_code == 1
+        assert "[/INST] unexpected" in result.stderr

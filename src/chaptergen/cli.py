@@ -7,6 +7,7 @@ from pathlib import Path
 
 import click
 from rich.console import Console
+from rich.markup import escape
 
 from chaptergen import __version__
 from chaptergen.config import resolve_config
@@ -54,7 +55,7 @@ def generate(
     """Generate chapters from a transcript file."""
     ext = input_path.suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
-        console.print(f"[red]Unsupported file type '{ext}'. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}[/red]")
+        console.print(f"[red]Unsupported file type '{escape(ext)}'. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}[/red]")
         sys.exit(1)
 
     try:
@@ -67,17 +68,17 @@ def generate(
             temperature=temperature,
         )
     except ValueError as exc:
-        console.print(f"[red]Configuration error: {exc}[/red]")
+        console.print(f"[red]Configuration error: {escape(str(exc))}[/red]")
         sys.exit(1)
 
-    console.print(f"[dim]Provider:[/dim] {cfg.provider}  [dim]Model:[/dim] {cfg.model}")
+    console.print(f"[dim]Provider:[/dim] {escape(cfg.provider)}  [dim]Model:[/dim] {escape(cfg.model)}")
 
     segments = load_segments(input_path)
     if not segments:
         console.print("[red]No transcript segments found in input file.[/red]")
         sys.exit(1)
 
-    console.print(f"[dim]Parsed {len(segments)} segments from {input_path.name}[/dim]")
+    console.print(f"[dim]Parsed {len(segments)} segments from {escape(input_path.name)}[/dim]")
 
     llm = get_provider(cfg)
 
@@ -90,17 +91,17 @@ def generate(
             min_gap_seconds=min_gap,
         )
     except Exception as exc:
-        console.print(f"[red]Generation failed: {exc}[/red]")
+        console.print(f"[red]Generation failed: {escape(str(exc))}[/red]")
         sys.exit(1)
 
     output_text = render(result, fmt=fmt)
 
     if output_path:
         output_path.write_text(output_text, encoding="utf-8")
-        console.print(f"[green]Wrote {len(result.chapters)} chapters to {output_path}[/green]")
+        console.print(f"[green]Wrote {len(result.chapters)} chapters to {escape(str(output_path))}[/green]")
     else:
-        out = Console()
-        out.print(output_text)
+        # Plain echo: Rich would treat titles as markup, swap :emoji: codes and hard-wrap long lines
+        click.echo(output_text)
 
 
 @main.command("check")
@@ -126,13 +127,13 @@ def check_provider(
             base_url=base_url,
         )
     except ValueError as exc:
-        console.print(f"[red]{exc}[/red]")
+        console.print(f"[red]{escape(str(exc))}[/red]")
         sys.exit(1)
 
     llm = get_provider(cfg)
     ok, msg = llm.health_check()
     if ok:
-        console.print(f"[green]{msg}[/green]")
+        console.print(f"[green]{escape(msg)}[/green]")
     else:
-        console.print(f"[red]{msg}[/red]")
+        console.print(f"[red]{escape(msg)}[/red]")
         sys.exit(1)
