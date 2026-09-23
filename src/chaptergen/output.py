@@ -40,7 +40,7 @@ def _render_json(result: GenerationResult) -> str:
         "provider": result.provider,
         "model": result.model,
         "chapters": [
-            {"timestamp": format_timestamp(ch.start_seconds), "start_seconds": ch.start_seconds, "title": ch.title}
+            {"timestamp": format_timestamp(ch.start_seconds), "start_seconds": int(ch.start_seconds), "title": ch.title}
             for ch in result.chapters
         ],
     }

@@ -112,5 +112,9 @@ def _resolve_api_key(
 ) -> str | None:
     if explicit:
         return explicit
-    env_var = env_name or default_env
-    return os.environ.get(env_var)
+    if env_name:
+        value = os.environ.get(env_name)
+        if not value:
+            raise ValueError(f"Environment variable {env_name} (from --api-key-env) is not set.")
+        return value
+    return os.environ.get(default_env)
