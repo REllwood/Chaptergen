@@ -111,6 +111,44 @@ class TestVttParser:
             assert "WEBVTT" not in seg.text
 
 
+class TestCueParsing:
+
+    def test_named_vtt_cue_identifiers_are_not_text(self, tmp_path):
+        f = tmp_path / "ids.vtt"
+        f.write_text("WEBVTT\n\nintro-cue\n00:00.000 --> 00:05.000\nHello there\n\n2\n00:06.000 --> 00:09.000\nSecond cue\n")
+        assert [s.text for s in parse_vtt(f)] == ["Hello there", "Second cue"]
+
+    def test_spoken_number_line_is_kept(self, tmp_path):
+        f = tmp_path / "numbers.srt"
+        f.write_text("1\n00:00:00,000 --> 00:00:02,000\nThe year was\n2024\n\n2\n00:00:02,500 --> 00:00:04,000\n42\n")
+        assert [s.text for s in parse_srt(f)] == ["The year was 2024", "42"]
+
+    def test_vtt_note_and_style_blocks_ignored(self, tmp_path):
+        f = tmp_path / "blocks.vtt"
+        f.write_text(
+            "WEBVTT\nKind: captions\nLanguage: en\n\n"
+            "STYLE\n::cue { color: yellow }\n\n"
+            "NOTE This is a comment\nspanning two lines\n\n"
+            "00:00.000 --> 00:05.000 align:start position:0%\nHello there\n"
+        )
+        assert [s.text for s in parse_vtt(f)] == ["Hello there"]
+
+    def test_vtt_entities_and_tags(self, tmp_path):
+        f = tmp_path / "entities.vtt"
+        f.write_text("WEBVTT\n\n00:00.000 --> 00:05.000\n<v Roger>Tom &amp; Jerry &lt;3</v> <00:00:01.000><c>really</c>\n")
+        assert parse_vtt(f)[0].text == "Tom & Jerry <3 really"
+
+    def test_srt_cues_without_blank_line_between(self, tmp_path):
+        f = tmp_path / "squashed.srt"
+        f.write_text("1\n00:00:00,000 --> 00:00:02,000\nFirst\n00:00:03,000 --> 00:00:05,000\nSecond\n")
+        assert [(s.start_seconds, s.text) for s in parse_srt(f)] == [(0, "First"), (3, "Second")]
+
+    def test_srt_single_digit_hours(self, tmp_path):
+        f = tmp_path / "hours.srt"
+        f.write_text("1\n1:02:03,500 --> 1:02:05,000\nLate in the video\n")
+        assert parse_srt(f)[0].start_seconds == 3723.5
+
+
 class TestLoadSegments:
 
     def test_dispatches_txt(self):
