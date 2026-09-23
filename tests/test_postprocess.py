@@ -125,6 +125,22 @@ class TestEnforceRules:
         assert result[0].start_seconds == 0
         assert result[0].title == "Introduction"
 
+    def test_early_first_chapter_moved_to_zero(self):
+        chapters = [
+            Chapter(start_seconds=5, title="Welcome and Overview"),
+            Chapter(start_seconds=120, title="Setup"),
+            Chapter(start_seconds=300, title="Demo"),
+        ]
+        result = enforce_rules(chapters)
+        assert [(c.start_seconds, c.title) for c in result] == [
+            (0, "Welcome and Overview"), (120, "Setup"), (300, "Demo"),
+        ]
+
+    def test_early_first_chapter_moved_even_without_min_gap(self):
+        # An "Introduction" 0:00-0:05 would be shorter than YouTube allows
+        result = enforce_rules([Chapter(start_seconds=5, title="Welcome")], min_gap_seconds=0)
+        assert [(c.start_seconds, c.title) for c in result] == [(0, "Welcome")]
+
     def test_keeps_existing_zero_chapter(self):
         chapters = [Chapter(start_seconds=0, title="My Intro"), Chapter(start_seconds=60, title="Next")]
         result = enforce_rules(chapters)

@@ -9,6 +9,9 @@ import re
 from chaptergen.models import Chapter
 from chaptergen.timestamps import parse_timestamp
 
+# YouTube ignores chapter lists containing a chapter shorter than this
+YOUTUBE_MIN_CHAPTER_SECONDS = 10
+
 # Models sometimes rename the start-time key; accept the common variants
 _START_KEYS = ("start_seconds", "start", "timestamp", "time")
 
@@ -69,9 +72,16 @@ def enforce_rules(
     """Apply YouTube-friendly business rules to chapter list."""
     chapters = sorted(chapters, key=lambda c: c.start_seconds)
 
-    # Ensure first chapter starts at 0:00
-    if not chapters or chapters[0].start_seconds != 0:
-        chapters.insert(0, Chapter(start_seconds=0, title="Introduction"))
+    # Ensure the first chapter starts at 0:00. One that starts just after 0:00 is
+    # moved there; inserting an "Introduction" instead would leave it too close
+    # to survive the minimum gap, losing the model's real first chapter.
+    if not chapters:
+        chapters = [Chapter(start_seconds=0, title="Introduction")]
+    elif chapters[0].start_seconds != 0:
+        if chapters[0].start_seconds < max(min_gap_seconds, YOUTUBE_MIN_CHAPTER_SECONDS):
+            chapters[0] = Chapter(start_seconds=0, title=chapters[0].title)
+        else:
+            chapters.insert(0, Chapter(start_seconds=0, title="Introduction"))
 
     # Deduplicate by timestamp (keep first occurrence)
     seen: set[float] = set()
