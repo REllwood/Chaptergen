@@ -55,11 +55,11 @@ def main() -> None:
 @main.command()
 @click.option("--input", "-i", "input_path", required=True, type=click.Path(exists=True, path_type=Path), help="Path to transcript file (.txt, .md, .srt, .vtt)")
 @click.option("--provider", "-p", default=None, help="LLM provider: ollama (default), openai")
-@click.option("--model", "-m", default=None, help="Model name (e.g. llama3.1, gpt-4o-mini)")
+@click.option("--model", "-m", default=None, help="Model name (e.g. llama3.1, gpt-5-mini)")
 @click.option("--api-key", default=None, help="API key (prefer --api-key-env instead)")
 @click.option("--api-key-env", default=None, help="Env var name holding the API key (e.g. OPENAI_API_KEY)")
 @click.option("--base-url", default=None, help="Override base URL for the provider")
-@click.option("--temperature", default=0.0, type=float, show_default=True, help="Sampling temperature")
+@click.option("--temperature", default=None, type=float, help="Sampling temperature [default: 0 for Ollama, the model's default for OpenAI]")
 @click.option("--format", "-f", "fmt", type=click.Choice(["chapters", "youtube", "json"], case_sensitive=False), default="chapters", show_default=True, help="Output format")
 @click.option("--output", "-o", "output_path", default=None, type=click.Path(path_type=Path), help="Write output to file instead of stdout")
 @click.option("--max-chapters", default=None, type=int, help="Suggest a maximum number of chapters to the LLM")
@@ -72,7 +72,7 @@ def generate(
     api_key: str | None,
     api_key_env: str | None,
     base_url: str | None,
-    temperature: float,
+    temperature: float | None,
     fmt: str,
     output_path: Path | None,
     max_chapters: int | None,

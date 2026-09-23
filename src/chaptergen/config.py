@@ -8,7 +8,7 @@ from dataclasses import dataclass
 DEFAULT_PROVIDER = "ollama"
 DEFAULT_OLLAMA_MODEL = "llama3.1"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
-DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_OPENAI_MODEL = "gpt-5-mini"
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,7 @@ class ProviderConfig:
     model: str
     api_key: str | None = None
     base_url: str | None = None
-    temperature: float = 0.0
+    temperature: float | None = None  # None: provider default
 
 
 def resolve_config(
@@ -29,7 +29,7 @@ def resolve_config(
     api_key: str | None = None,
     api_key_env: str | None = None,
     base_url: str | None = None,
-    temperature: float = 0.0,
+    temperature: float | None = None,
 ) -> ProviderConfig:
     """Build a :class:`ProviderConfig` from CLI flags and env vars.
 

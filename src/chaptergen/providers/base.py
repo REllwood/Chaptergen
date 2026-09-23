@@ -9,8 +9,11 @@ class LLMProvider(ABC):
     """Common interface all providers must implement."""
 
     @abstractmethod
-    def complete(self, system_prompt: str, user_prompt: str, *, temperature: float = 0.0) -> str:
-        """Send a prompt and return the raw text response."""
+    def complete(self, system_prompt: str, user_prompt: str, *, temperature: float | None = None) -> str:
+        """Send a prompt and return the raw text response.
+
+        ``temperature=None`` means the provider's default.
+        """
 
     @abstractmethod
     def health_check(self) -> tuple[bool, str]:
