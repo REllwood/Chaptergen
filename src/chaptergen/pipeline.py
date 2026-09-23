@@ -26,10 +26,11 @@ def generate_chapters(
     config: ProviderConfig,
     max_chapters: int | None = None,
     min_gap_seconds: int = 30,
+    duration_seconds: float | None = None,
 ) -> GenerationResult:
     """Run the full generation pipeline and return validated chapters."""
     segments = condense_segments(segments)
-    duration_hint = _estimate_duration(segments)
+    duration_hint = duration_seconds or _estimate_duration(segments)
 
     user_prompt = build_user_prompt(
         segments,

@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from chaptergen.models import Segment
 from chaptergen.parsers import load_segments
 from chaptergen.parsers.subtitles import parse_srt, parse_vtt
-from chaptergen.parsers.transcript import parse_transcript
+from chaptergen.parsers.transcript import estimate_timings, parse_transcript
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -77,6 +78,21 @@ class TestTranscriptParser:
         f.write_text("")
         segs = parse_transcript(f)
         assert segs == []
+
+
+class TestEstimateTimings:
+
+    def test_default_speaking_pace(self):
+        segs = [Segment(start_seconds=0, text="word " * 150) for _ in range(3)]
+        assert [s.start_seconds for s in estimate_timings(segs)] == [0, 60, 120]
+
+    def test_scaled_to_duration(self):
+        segs = [Segment(start_seconds=0, text="one two three four five six seven eight nine ten") for _ in range(2)]
+        assert [s.start_seconds for s in estimate_timings(segs, duration_seconds=100)] == [0, 50]
+
+    def test_keeps_text(self):
+        segs = [Segment(start_seconds=0, text="hello there"), Segment(start_seconds=0, text="general kenobi")]
+        assert [s.text for s in estimate_timings(segs)] == ["hello there", "general kenobi"]
 
 
 class TestSrtParser:
