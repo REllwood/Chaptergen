@@ -1,4 +1,4 @@
-"""Parse the timestamp strings people and models write (``SS``, ``MM:SS``, ``H:MM:SS``)."""
+"""Parse and format timestamps (``SS``, ``MM:SS``, ``H:MM:SS``)."""
 
 from __future__ import annotations
 
@@ -19,3 +19,12 @@ def parse_timestamp(value: str) -> float:
     if re.fullmatch(r"\d+(?:\.\d+)?", text):
         return float(text)
     raise ValueError(f"Not a timestamp: {value!r}")
+
+
+def format_timestamp(seconds: float) -> str:
+    """Format seconds as ``MM:SS``, or ``H:MM:SS`` from an hour, as YouTube chapter lists use."""
+    hours, remainder = divmod(int(seconds), 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"

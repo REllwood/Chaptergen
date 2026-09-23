@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 
-from chaptergen.models import Chapter, GenerationResult
+from chaptergen.models import GenerationResult
+from chaptergen.timestamps import format_timestamp
 
 
 def render(result: GenerationResult, *, fmt: str = "chapters") -> str:
@@ -21,7 +22,7 @@ def render(result: GenerationResult, *, fmt: str = "chapters") -> str:
 
 
 def _render_chapters(result: GenerationResult) -> str:
-    lines = [f"{_format_ts(ch.start_seconds)} {ch.title}" for ch in result.chapters]
+    lines = [f"{format_timestamp(ch.start_seconds)} {ch.title}" for ch in result.chapters]
     return "\n".join(lines)
 
 
@@ -30,7 +31,7 @@ def _render_youtube(result: GenerationResult) -> str:
     parts: list[str] = []
     parts.append("Chapters:")
     for ch in result.chapters:
-        parts.append(f"{_format_ts(ch.start_seconds)} {ch.title}")
+        parts.append(f"{format_timestamp(ch.start_seconds)} {ch.title}")
     return "\n".join(parts)
 
 
@@ -39,19 +40,9 @@ def _render_json(result: GenerationResult) -> str:
         "provider": result.provider,
         "model": result.model,
         "chapters": [
-            {"timestamp": _format_ts(ch.start_seconds), "start_seconds": ch.start_seconds, "title": ch.title}
+            {"timestamp": format_timestamp(ch.start_seconds), "start_seconds": ch.start_seconds, "title": ch.title}
             for ch in result.chapters
         ],
     }
     return json.dumps(data, indent=2, ensure_ascii=False)
 
-
-def _format_ts(seconds: float) -> str:
-    """Format seconds into HH:MM:SS or MM:SS for YouTube."""
-    total = int(seconds)
-    h = total // 3600
-    m = (total % 3600) // 60
-    s = total % 60
-    if h > 0:
-        return f"{h}:{m:02d}:{s:02d}"
-    return f"{m:02d}:{s:02d}"

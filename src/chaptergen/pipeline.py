@@ -13,8 +13,6 @@ from chaptergen.providers.base import LLMProvider
 
 _console = Console(stderr=True)
 
-MAX_RETRIES = 1
-
 # Consecutive segments starting within this many seconds are sent as one line
 MERGE_WINDOW_SECONDS = 15
 

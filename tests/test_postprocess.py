@@ -6,7 +6,7 @@ import pytest
 
 from chaptergen.models import Chapter
 from chaptergen.postprocess import enforce_rules, parse_chapters_json, youtube_problems
-from chaptergen.timestamps import parse_timestamp
+from chaptergen.timestamps import format_timestamp, parse_timestamp
 
 
 class TestParseChaptersJson:
@@ -115,6 +115,15 @@ class TestParseTimestamp:
     def test_invalid(self, value):
         with pytest.raises(ValueError):
             parse_timestamp(value)
+
+
+class TestFormatTimestamp:
+
+    @pytest.mark.parametrize(("seconds", "expected"), [
+        (0, "00:00"), (59.9, "00:59"), (135, "02:15"), (3599, "59:59"), (3600, "1:00:00"), (3723, "1:02:03"),
+    ])
+    def test_format(self, seconds, expected):
+        assert format_timestamp(seconds) == expected
 
 
 class TestEnforceRules:
