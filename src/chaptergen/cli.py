@@ -52,17 +52,17 @@ def main() -> None:
 
 
 @main.command()
-@click.option("--input", "-i", "input_path", required=True, type=click.Path(exists=True, path_type=Path), help="Path to transcript file (.txt, .md, .srt, .vtt)")
+@click.option("--input", "-i", "input_path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path), help="Path to transcript file (.txt, .md, .srt, .vtt)")
 @click.option("--provider", "-p", default=None, help="LLM provider: ollama (default), openai")
 @click.option("--model", "-m", default=None, help="Model name (e.g. llama3.1, gpt-5-mini)")
 @click.option("--api-key", default=None, help="API key (prefer --api-key-env instead)")
 @click.option("--api-key-env", default=None, help="Env var name holding the API key (e.g. OPENAI_API_KEY)")
 @click.option("--base-url", default=None, help="Override base URL for the provider")
-@click.option("--temperature", default=None, type=float, help="Sampling temperature [default: 0 for Ollama, the model's default for OpenAI]")
+@click.option("--temperature", default=None, type=click.FloatRange(0, 2), help="Sampling temperature [default: 0 for Ollama, the model's default for OpenAI]")
 @click.option("--format", "-f", "fmt", type=click.Choice(["chapters", "youtube", "json"], case_sensitive=False), default="chapters", show_default=True, help="Output format")
 @click.option("--output", "-o", "output_path", default=None, type=click.Path(path_type=Path), help="Write output to file instead of stdout")
-@click.option("--max-chapters", default=None, type=int, help="Maximum number of chapters")
-@click.option("--min-gap", default=30, type=int, show_default=True, help="Minimum seconds between chapters")
+@click.option("--max-chapters", default=None, type=click.IntRange(min=1), help="Maximum number of chapters")
+@click.option("--min-gap", default=30, type=click.IntRange(min=0), show_default=True, help="Minimum seconds between chapters")
 @click.option("--duration", default=None, type=_Duration(), help="Video length (e.g. 12:34); used to time transcripts without timestamps")
 def generate(
     input_path: Path,
@@ -148,13 +148,13 @@ def generate(
 
 
 @main.command("check")
-@click.option("--provider", "-p", default="ollama", help="Provider to check")
+@click.option("--provider", "-p", default=None, help="Provider to check: ollama (default), openai")
 @click.option("--model", "-m", default=None, help="Model to verify availability")
 @click.option("--base-url", default=None, help="Override base URL")
 @click.option("--api-key", default=None, help="API key for cloud provider")
 @click.option("--api-key-env", default=None, help="Env var holding API key")
 def check_provider(
-    provider: str,
+    provider: str | None,
     model: str | None,
     base_url: str | None,
     api_key: str | None,

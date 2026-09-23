@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from click.testing import CliRunner
 
 from chaptergen.cli import main
@@ -56,6 +57,13 @@ class TestOutputRenderers:
         assert len(data["chapters"]) == 4
         assert data["chapters"][0]["timestamp"] == "00:00"
         assert data["chapters"][0]["start_seconds"] == 0
+
+    def test_json_start_seconds_are_whole_seconds(self):
+        result = GenerationResult(chapters=[Chapter(start_seconds=0, title="A"), Chapter(start_seconds=12.7, title="B")])
+        data = json.loads(render(result, fmt="json"))
+        assert [c["start_seconds"] for c in data["chapters"]] == [0, 12]
+        assert all(isinstance(c["start_seconds"], int) for c in data["chapters"])
+        assert data["chapters"][1]["timestamp"] == "00:12"
 
     def test_unknown_format_raises(self):
         try:
@@ -270,3 +278,35 @@ class TestCLIErrors:
         result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt"), "--output", str(out_file)])
         assert result.exit_code == 1
         assert "Could not write" in result.stderr
+
+
+class TestOptionValidation:
+
+    @pytest.mark.parametrize("extra", [
+        ["--min-gap", "-1"],
+        ["--max-chapters", "0"],
+        ["--temperature", "5"],
+    ])
+    def test_out_of_range_values_rejected(self, extra):
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt"), *extra])
+        assert result.exit_code == 2
+
+    def test_directory_input_rejected(self, tmp_path):
+        folder = tmp_path / "talk.txt"
+        folder.mkdir()
+        result = _runner().invoke(main, ["generate", "--input", str(folder)])
+        assert result.exit_code == 2
+
+    def test_api_key_env_not_set(self, monkeypatch):
+        monkeypatch.delenv("MY_MISSING_KEY", raising=False)
+        args = ["generate", "--input", str(FIXTURES / "sample.txt"), "-p", "openai", "--api-key-env", "MY_MISSING_KEY"]
+        result = _runner().invoke(main, args)
+        assert result.exit_code == 1
+        assert "MY_MISSING_KEY" in result.stderr
+
+    def test_check_honours_provider_env(self, monkeypatch):
+        monkeypatch.setenv("CHAPTERGEN_PROVIDER", "openai")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        result = _runner().invoke(main, ["check"])
+        assert result.exit_code == 1
+        assert "OpenAI" in result.stderr
