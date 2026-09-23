@@ -177,6 +177,18 @@ class TestCLI:
         assert result.exit_code == 1
         assert "[/INST] unexpected" in result.stderr
 
+    @patch("chaptergen.cli.get_provider")
+    @patch("chaptergen.cli.generate_chapters")
+    def test_warns_when_youtube_would_ignore_chapters(self, mock_gen, mock_get_prov):
+        mock_gen.return_value = GenerationResult(
+            chapters=[Chapter(start_seconds=0, title="Intro"), Chapter(start_seconds=60, title="Main")],
+        )
+        mock_get_prov.return_value = MagicMock()
+        result = _runner().invoke(main, ["generate", "--input", str(FIXTURES / "sample.txt")])
+        assert result.exit_code == 0
+        assert "at least 3" in result.stderr
+        assert result.stdout.splitlines() == ["00:00 Intro", "01:00 Main"]
+
 
 class TestUntimedTranscripts:
 

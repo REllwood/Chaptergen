@@ -7,7 +7,7 @@ from rich.markup import escape
 
 from chaptergen.config import ProviderConfig
 from chaptergen.models import GenerationResult, Segment
-from chaptergen.postprocess import enforce_rules, parse_chapters_json
+from chaptergen.postprocess import YOUTUBE_MIN_CHAPTER_SECONDS, enforce_rules, parse_chapters_json
 from chaptergen.prompts.chapters import REPAIR_PROMPT, SYSTEM_PROMPT, build_user_prompt
 from chaptergen.providers.base import LLMProvider
 
@@ -29,6 +29,14 @@ def generate_chapters(
     duration_seconds: float | None = None,
 ) -> GenerationResult:
     """Run the full generation pipeline and return validated chapters."""
+    # A chapter can't start after the video ends (and the last one needs room to be
+    # long enough for YouTube). Without the real length, anything after the last
+    # transcript line is invented.
+    if duration_seconds:
+        latest_start = duration_seconds - YOUTUBE_MIN_CHAPTER_SECONDS
+    else:
+        latest_start = _estimate_duration(segments)
+
     segments = condense_segments(segments)
     duration_hint = duration_seconds or _estimate_duration(segments)
 
@@ -43,7 +51,12 @@ def generate_chapters(
 
     chapters = _parse_with_retry(provider, raw, config.temperature)
 
-    chapters = enforce_rules(chapters, min_gap_seconds=min_gap_seconds, max_chapters=max_chapters)
+    chapters = enforce_rules(
+        chapters,
+        min_gap_seconds=min_gap_seconds,
+        max_chapters=max_chapters,
+        latest_start_seconds=latest_start,
+    )
 
     _console.print(f"[dim]Generated {len(chapters)} chapters[/dim]")
 

@@ -71,6 +71,26 @@ class TestGenerateChapters:
         assert len(result.chapters) == 5
         assert result.chapters[0].start_seconds == 0
 
+    def test_chapters_after_transcript_end_dropped(self):
+        output = json.dumps([
+            {"start_seconds": 0, "title": "Intro"},
+            {"start_seconds": 120, "title": "Setup"},
+            {"start_seconds": 900, "title": "Invented"},
+        ])
+        result = generate_chapters(segments=SEGMENTS, provider=FakeProvider(output), config=CONFIG)
+        assert [c.title for c in result.chapters] == ["Intro", "Setup"]
+
+    def test_duration_allows_chapters_after_last_line(self):
+        output = json.dumps([
+            {"start_seconds": 0, "title": "Intro"},
+            {"start_seconds": 400, "title": "Outro"},
+            {"start_seconds": 595, "title": "Too close to the end"},
+        ])
+        result = generate_chapters(
+            segments=SEGMENTS, provider=FakeProvider(output), config=CONFIG, duration_seconds=600,
+        )
+        assert [c.title for c in result.chapters] == ["Intro", "Outro"]
+
 
 class TestCondenseSegments:
 
