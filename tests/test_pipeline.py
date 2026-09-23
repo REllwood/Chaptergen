@@ -64,6 +64,13 @@ class TestGenerateChapters:
         assert "First error" in message
         assert "Second error" in message
 
+    def test_max_chapters_enforced(self):
+        many = json.dumps([{"start_seconds": t, "title": f"Chapter {t}"} for t in range(0, 1200, 60)])
+        provider = FakeProvider(many)
+        result = generate_chapters(segments=SEGMENTS, provider=provider, config=CONFIG, max_chapters=5)
+        assert len(result.chapters) == 5
+        assert result.chapters[0].start_seconds == 0
+
 
 class TestCondenseSegments:
 

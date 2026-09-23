@@ -75,7 +75,7 @@ chaptergen generate --input <file> [options]
 | `--api-key-env` | — | Env var name holding API key |
 | `--base-url` | — | Override provider URL |
 | `--temperature` | `0` (Ollama) / model default (OpenAI) | Sampling temperature. Reasoning models such as the GPT-5 family only support their default, so it's ignored for them |
-| `--max-chapters` | — | Suggest max chapter count to LLM |
+| `--max-chapters` | — | Maximum number of chapters (shortest chapters are merged away if the model returns more) |
 | `--min-gap` | `30` | Minimum seconds between chapters |
 | `--duration` | — | Video length (e.g. `12:34`); improves timings for transcripts without timestamps |
 

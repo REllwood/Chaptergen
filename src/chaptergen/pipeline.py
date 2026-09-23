@@ -43,7 +43,7 @@ def generate_chapters(
 
     chapters = _parse_with_retry(provider, raw, config.temperature)
 
-    chapters = enforce_rules(chapters, min_gap_seconds=min_gap_seconds)
+    chapters = enforce_rules(chapters, min_gap_seconds=min_gap_seconds, max_chapters=max_chapters)
 
     _console.print(f"[dim]Generated {len(chapters)} chapters[/dim]")
 
