@@ -124,7 +124,7 @@ Chapters:
 |----------|-------------|
 | `CHAPTERGEN_PROVIDER` | Default provider |
 | `CHAPTERGEN_MODEL` | Default model |
-| `OLLAMA_HOST` | Ollama server URL (default: `http://localhost:11434`) |
+| `OLLAMA_HOST` | Ollama server address, same format as Ollama's own, e.g. `gpu-box:11434` or `https://ollama.example.com` (default: `http://localhost:11434`) |
 | `OPENAI_API_KEY` | OpenAI API key |
 | `OPENAI_BASE_URL` | OpenAI-compatible base URL |
 
